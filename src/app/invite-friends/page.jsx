@@ -8,7 +8,7 @@ import { Input } from "../../../components/components/ui/input";
 import { Button } from "../../../components/components/ui/button";
 
 export default function InviteAndChoose() {
-  const [token, setToken] = useState("")
+  const [token, setToken] = useState("");
 
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -29,75 +29,84 @@ export default function InviteAndChoose() {
   if (status === "loading") {
     return <p>Loading...</p>;
   }
-  
 
   useEffect(() => {
-    const hash = window.location.hash
-    let token = window.localStorage.getItem("token")
+    const hash = window.location.hash;
+    let token = window.localStorage.getItem("token");
 
     if (!token && hash) {
-        token = hash.substring(1).split("&").find(elem => elem.startsWith("access_token")).split("=")[1]
+      token = hash
+        .substring(1)
+        .split("&")
+        .find((elem) => elem.startsWith("access_token"))
+        .split("=")[1];
 
-        window.location.hash = ""
-        window.localStorage.setItem("token", token)
+      window.location.hash = "";
+      window.localStorage.setItem("token", token);
     }
 
-    setToken(token)
-    console.log("token is" + token)
-
-}, [])
+    setToken(token);
+    console.log("token is" + token);
+  }, []);
 
   const handleGeneratePlaylist = async () => {
     if (!selectedGenre) {
-      alert("Please select a genre first!");
+      alert("Please select the situation you are in!");
       return;
     }
-  
-    const usernames = [formData.user1, formData.user2, formData.user3].filter(Boolean);
-  
+
+    const usernames = [formData.user1, formData.user2, formData.user3].filter(
+      Boolean
+    );
+
     if (!usernames.length) {
       alert("Please enter at least one username!");
       return;
     }
-  
+
     try {
-      // get access token
-      const accessToken = await requestAccessToken();
-  
-      // get playlists for each user
-      const fetchPlaylists = async (userId) => {
-        const response = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
-          method: "GET",
+      const userId = session?.token?.sub; 
+      const accessToken = session?.token?.access_token; // acess token
+
+      if (!userId || !accessToken) {
+        alert("User ID or access token not available");
+        return;
+      }
+
+      const playlistName = `${selectedGenre} Mix`;
+      const description = `${usernames.join(
+        " x "
+      )} | Made with Pass the Aux by Megan Ong`;
+
+      const response = await fetch(
+        `https://api.spotify.com/v1/users/${userId}/playlists`,
+        {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
-        });
-  
-        if (!response.ok) {
-          console.error(
-            `Error: Not able to fetch playlists for user ${userId}:`,
-            await response.json()
-          );
-          return null;
+          body: JSON.stringify({
+            name: playlistName,
+            description: description,
+            public: false, 
+          }),
         }
-  
-        return await response.json();
-      };
-  
-      const playlistsData = await Promise.all(
-        usernames.map((username) => fetchPlaylists(username))
       );
-  
-      console.log("Fetched Playlist Data:", playlistsData);
-      alert("Success");
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error creating playlist:", errorData);
+        return;
+      }
+
+      const playlistData = await response.json();
+      console.log("Playlist created:", playlistData);
     } catch (error) {
-      console.error("Error in playlist generation:", error);
-      alert("Something went wrong please try again.");
+      console.error("Error from handleGeneratePlaylist:", error);
     }
   };
-  
-  
+
   useEffect(() => {
     console.log(formData);
   }, [formData]);
