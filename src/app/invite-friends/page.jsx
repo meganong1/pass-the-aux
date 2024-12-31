@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { useRouter, redirect } from "next/navigation";
 import { Input } from "../../../components/components/ui/input";
 import { Button } from "../../../components/components/ui/button";
+import { get } from "http";
 
 export default function InviteAndChoose() {
   const [token, setToken] = useState("");
@@ -13,7 +14,7 @@ export default function InviteAndChoose() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const genres = ["party", "driving", "chill"];
+  const genres = ["Party", "Driving", "Chill"];
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [blendId] = useState(
     "blend-" + Math.random().toString(36).substring(2, 9)
@@ -49,115 +50,60 @@ export default function InviteAndChoose() {
     console.log("token is" + token);
   }, []);
 
-  const getCurrentUserPlaylists = async (session) => {
+  const fetchUserTopTracks = async (username) => {
     try {
-      const accessToken = session?.token?.access_token;
+      const url = new URL("https://ws.audioscrobbler.com/2.0/");
+      url.searchParams.append("method", "user.getTopTracks");
+      url.searchParams.append("user", username);
+      url.searchParams.append(
+        "api_key",
+        process.env.NEXT_PUBLIC_LASTFM_API_KEY
+      );
+      url.searchParams.append("format", "json");
+      url.searchParams.append("limit", "50"); 
 
-      if (!accessToken) {
-        alert("Access token not available");
+      const response = await fetch(url.toString()); 
+      if (!response.ok) {
+        console.error(
+          `Error fetching top tracks: ${username}`,
+          response.statusText
+        );
         return [];
       }
 
-      const userPlaylistIds = [];
-      let nextUrl = "https://api.spotify.com/v1/me/playlists?limit=25"; 
-
-      while (nextUrl) {
-        const response = await fetch(nextUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        });
-        console.log("Response status", response.status);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Error fetching current user's playlists:", errorData);
-          alert("Unable to fetch your playlists.");
-          return [];
-        }
-
-        const playlistData = await response.json();
-        console.log("Successfully fetched current user's playlists:", playlistData);
-
-        const currentPageIds = playlistData.items.map(
-          (playlist) => playlist.id
-        );
-        userPlaylistIds.push(...currentPageIds);
-
-        nextUrl = playlistData.next; 
+      const data = await response.json();
+      if (!data.toptracks || !data.toptracks.track) {
+        console.log(`Unexpected API response: ${username}`, data);
+        return [];
       }
 
-      console.log("Current user's playlist IDs:", userPlaylistIds);
-      return userPlaylistIds;
+      const topTracks = data.toptracks.track.map(
+        (track) => `${track.name} by ${track.artist.name}`
+      );
+
+      return topTracks;
     } catch (error) {
-      console.error("Error:", error);
-      alert("An error occurred while fetching your playlists.");
+      console.error(`Error fetching top tracks for user: ${username}`, error);
       return [];
     }
   };
 
-  const getSavedPlaylists = async (
-    usernames,
-    session,
-    currentUserPlaylistIds
-  ) => {
+  const getTracks = async (usernames) => {
     try {
-      const accessToken = session?.token?.access_token;
+      const tracksPromises = usernames.map((username) =>
+        fetchUserTopTracks(username)
+      );
+      const usersTopTracks = await Promise.all(tracksPromises);
 
-      if (!accessToken) {
-        alert("Access token not available");
-        return [];
-      }
+      const allTracks = Array.from(new Set(usersTopTracks.flat()));
+      console.log("Succesfully fetched top tracks:", allTracks);
 
-      const savedPlaylists = [...currentUserPlaylistIds]; 
-
-      for (const userId of usernames) {
-        let nextUrl = `https://api.spotify.com/v1/users/${userId}/playlists?limit=25`;
-
-        while (nextUrl) {
-          const response = await fetch(nextUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error(
-              `Error getting playlists for user ${userId}:`,
-              errorData
-            );
-            alert(
-              `Failed to get playlists for this user ${userId}. Continuing with other users...`
-            );
-            break;
-          }
-
-          const playlistData = await response.json();
-          console.log(
-            `Fetched playlist page for user ${userId}:`,
-            playlistData
-          );
-
-          const playlistIds = playlistData.items.map((playlist) => playlist.id);
-
-          savedPlaylists.push(...playlistIds);
-
-          nextUrl = playlistData.next;
-        }
-      }
-
-      console.log("All saved playlists:", savedPlaylists);
-      alert("Successfully able to fetch playlists");
-
-      return savedPlaylists;
+      return allTracks;
     } catch (error) {
-      console.error("Error:", error);
-      alert("An error occurred while fetching playlists.");
+      console.error("Error in getTracks:", error);
+      alert(
+        "Failed to fetch top tracks"
+      );
       return [];
     }
   };
@@ -231,12 +177,8 @@ export default function InviteAndChoose() {
     }
 
     await createEmptyPlaylist(selectedGenre, usernames, session);
-    const currentUserPlaylistIds = await getCurrentUserPlaylists(session);
-    const allSavedPlaylists = await getSavedPlaylists(
-      usernames,
-      session,
-      currentUserPlaylistIds
-    );
+    const tracks = await getTracks(usernames);
+    console.log("Generated tracks:", tracks);
   };
 
   useEffect(() => {
