@@ -6,12 +6,15 @@ import { signOut } from "next-auth/react";
 import { useRouter, redirect } from "next/navigation";
 import { Input } from "../../../components/components/ui/input";
 import { Button } from "../../../components/components/ui/button";
-import { get } from "http";
-import { CohereClient } from "cohere-ai";
+import {
+  addURIsToPlaylist,
+  getSpotifyURIS,
+  getSpotifyTrackIDs,
+  getCuratedPlaylist,
+  getTracks,
+  createEmptyPlaylist,
+} from "./playlist-helpers";
 
-const cohereClient = new CohereClient({
-  token: process.env.NEXT_PUBLIC_COHERE_API_KEY,
-});
 
 export default function InviteAndChoose() {
   const [token, setToken] = useState("");
@@ -55,245 +58,45 @@ export default function InviteAndChoose() {
     console.log("token is" + token);
   }, []);
 
-  const getSpotifyTrackIDs = async (tracks) => {
-    try {
-      const accessToken = session?.token?.access_token;
-  
-      if (!accessToken) {
-        alert("Access token not available");
-        return [];
-      }
-  
-      const trackIDs = [];
-  
-      for (const track of tracks) {
-        try {
-          const response = await fetch(
-            `https://api.spotify.com/v1/search?q=${track}&type=track&limit=1&offset=0`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-  
-          if (!response.ok) {
-            console.error(`Error searching for track: ${track}`);
-            continue;
-          }
-  
-          const data = await response.json();
-          const trackItem = data.tracks?.items?.[0];
-  
-          if (trackItem) {
-            trackIDs.push(trackItem.id);
-            console.log(`Successfully found Spotify ID for "${track} ID:${trackItem.id}`);
-          } else {
-            console.log(`No Spotify track found: "${track}"`);
-          }
-        } catch (error) {
-          console.error(`Error fetching track "${track}":`, error);
-        }
-      }
-  
-      return trackIDs;
-    } catch (error) {
-      console.error("Error in getSpotifyTrackIDs:", error);
-      return [];
-    }
-  };
-
-  const getCuratedPlaylist = async (tracks, selectedGenre) => {
-    try {
-      if (!tracks || !tracks.length) {
-        console.error("No tracks provided for curation");
-        return [];
-      }
-      const message = `Create a playlist of 30 songs for a ${selectedGenre} situation separated by *. The format is 'Song Title Artist Name' with no punctuation separating song title and artist. Ensure variety from each user, no duplicates allowed and must be good (i.e. no white/brown/pink noise) as it will be played on aux. Use the provided list of recently listened songs: ${tracks} as a base. If any songs from the list fit well with the situation include them. If they do not fit the  ${selectedGenre} situation/genre, suggest new songs that align with the overall music taste demonstrated in the list and are suitable for the ${selectedGenre} situation. Ensure the final playlist is a blend of familiar songs and fresh suggestions that fit the mood and genre. Do not number the list as it is separated by *`;
-
-      console.log("Message to Cohere API:", message);
-      const cohereResponse = await cohereClient.chat({
-        model: "command-r-plus-08-2024",
-        message: message,
-        preamble:
-          "You are an AI assistant trained to assist users by responding only in array of strings of size 30, separated by *. Do not add numbers or bullets to list and keep it on one line. Do not include a numbered or bullet list.",
-      });
-
-      console.log("Full Cohere Response:", cohereResponse);
-
-      if (!cohereResponse || !cohereResponse.text) {
-        console.error("Invalid response structure from Cohere API");
-        return [];
-      }
-
-      const curatedPlaylist = cohereResponse.text
-        .split("*")
-        .map((item) => item.trim()) 
-        .filter((item) => item.length > 0); 
-
-      console.log("Formatted Playlist:", curatedPlaylist);
-      return curatedPlaylist;
-    } catch (error) {
-      console.error("Error in getCuratedPlaylist:", error.message);
-      return [];
-    }
-  };
-
-  const getTracks = async (usernames, session) => {
-    try {
-      const fetchUserTracks = async (username) => {
-        const getLastFmData = async (method, userParam) => {
-          const url = new URL("https://ws.audioscrobbler.com/2.0/");
-          url.searchParams.append("method", method);
-          url.searchParams.append("user", userParam);
-          url.searchParams.append("limit", 25);
-          url.searchParams.append(
-            "api_key",
-            process.env.NEXT_PUBLIC_LASTFM_API_KEY
-          );
-          url.searchParams.append("format", "json");
-
-          const response = await fetch(url);
-          if (!response.ok) {
-            console.error(`Error fetching ${method} for user ${userParam}`);
-            return [];
-          }
-
-          const data = await response.json();
-          return data;
-        };
-        const topTracksData = await getLastFmData(
-          "user.getTopTracks",
-          username
-        );
-        const topTracks =
-          topTracksData?.toptracks?.track?.map(
-            (track) =>
-              `${track.name} by ${track.artist.name} (from ${username})`
-          ) || [];
-
-        const lovedTracksData = await getLastFmData(
-          "user.getLovedTracks",
-          username
-        );
-        const lovedTracks =
-          lovedTracksData?.lovedtracks?.track?.map(
-            (track) =>
-              `${track.name} by ${track.artist.name} (from ${username})`
-          ) || [];
-
-        const recentTracksData = await getLastFmData(
-          "user.getRecentTracks",
-          username
-        );
-        const recentTracks =
-          recentTracksData?.recenttracks?.track?.map(
-            (track) =>
-              `${track.name} by ${track.artist["#text"]} (from ${username})`
-          ) || [];
-
-        return [...topTracks, ...lovedTracks, ...recentTracks];
-      };
-
-      const tracksPromises = usernames.map((username) =>
-        fetchUserTracks(username)
-      );
-      const usersTracks = await Promise.all(tracksPromises);
-
-      const allTracks = usersTracks.flat();
-
-      console.log("Fetched tracks:", allTracks);
-
-      return allTracks;
-    } catch (error) {
-      console.error("Error in getTracks function:", error);
-      alert("Failed to fetch tracks");
-      return [];
-    }
-  };
-
-  const createEmptyPlaylist = async (selectedGenre, usernames, session) => {
-    try {
-      const userId = session?.token?.sub;
-      const accessToken = session?.token?.access_token;
-
-      if (!userId || !accessToken) {
-        alert("User ID or access token not available");
-        return null;
-      }
-
-      const playlistName = `${selectedGenre} Mix`;
-      const description = `${usernames.join(
-        " x "
-      )} | Made with Pass the Aux by Megan Ong`;
-
-      const response = await fetch(
-        `https://api.spotify.com/v1/users/${userId}/playlists`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: playlistName,
-            description: description,
-            public: false,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error creating playlist:", errorData);
-        alert("Failed to create playlist. Please try again.");
-        return null;
-      }
-
-      const playlistData = await response.json();
-      const playlistId = playlistData.id;
-
-      alert(`Playlist created! ${playlistData.name}`);
-      console.log("Playlist created:", playlistData);
-      console.log("Created playlist ID:", playlistId);
-
-      return playlistId;
-    } catch (error) {
-      console.error("Error from createEmptyPlaylist:", error);
-      alert("Error while creating playlist.");
-      return null;
-    }
-  };
-
   const handleGeneratePlaylist = async () => {
     if (!selectedGenre) {
       alert("Please select the situation you are in!");
       return;
     }
-
-    const usernames = [formData.user1, formData.user2, formData.user3].filter(
-      Boolean
-    );
-
+  
+    const usernames = [formData.user1, formData.user2, formData.user3].filter(Boolean);
+  
     if (!usernames.length) {
       alert("Please enter at least one username!");
       return;
     }
-
-    const tracks = await getTracks(usernames);
-    console.log("Generated tracks:", tracks);
-    const generatedPlaylist = await getCuratedPlaylist(tracks, selectedGenre);
-    console.log("Generated Playlist:", generatedPlaylist);
-
-    if (generatedPlaylist.length) {
+  
+    try {
+      const playlistId = await createEmptyPlaylist(selectedGenre, usernames, session);
+      const tracks = await getTracks(usernames, session);
+      console.log("Generated tracks:", tracks);
+  
+      const generatedPlaylist = await getCuratedPlaylist(tracks, selectedGenre);
+      console.log("Generated Playlist:", generatedPlaylist);
+  
+      if (generatedPlaylist.length) {
+        const spotifyIDs = await getSpotifyTrackIDs(generatedPlaylist, session);
+        if (spotifyIDs.length) {
+          alert(`Successfully got Spotify IDs!`);
+        }
+  
+        const spotifyURIs = await getSpotifyURIS(spotifyIDs, session);
+        if (spotifyURIs.length) {
+          alert(`Successfully got Spotify URIs!`);
+          addURIsToPlaylist(playlistId, spotifyURIs, session);
+        }
+      }
+    } catch (error) {
+      console.error("Error in generating playlist:", error);
+      alert("An error occurred while generating the playlist.");
     }
-    const spotifyIDs = await getSpotifyTrackIDs(generatedPlaylist)
-    if (spotifyIDs.length) {
-      alert(`Succesfully got Spotify IDs!`);
-    }  };
-
+  };
+  
   useEffect(() => {
     console.log(formData);
   }, [formData]);
