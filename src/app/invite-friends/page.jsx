@@ -124,20 +124,12 @@ export default function InviteAndChoose() {
   }
 
   return (
-    <div className="p-6">
-      <div>
-        <Popover
-          onOpenChange={(open) => setIsOpen(open)}
-        >
+    <div className="page-container">
+      <div className="top-right">
+        <Popover onOpenChange={(open) => setIsOpen(open)}>
           <PopoverTrigger>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              Hello, {session?.user?.name}
+            <span className="login">
+              Hello, {session?.user?.name}&nbsp;
               {isOpen ? <IoIosArrowUp /> : <IoIosArrowDown />}
             </span>
           </PopoverTrigger>
@@ -154,45 +146,49 @@ export default function InviteAndChoose() {
         </Popover>
       </div>
 
-      <h1 className="mt-6 mb-4 text-xl font-bold">What is your situation?</h1>
-      <div className="flex flex-col gap-4">
-        {genres.map((genre) => (
+      <div className="content-center">
+        <h1 className="mt-6 mb-4 text-xl font-bold">What is your situation?</h1>
+        <div className="button-group">
+          {genres.map((genre) => (
+            <Button
+              key={genre}
+              className="button"
+              onClick={() => {
+                handleChange("genre", genre);
+                setSelectedGenre(genre);
+              }}
+            >
+              {genre}
+            </Button>
+          ))}
+        </div>
+
+        <div className="mt-6">
+          <h2 className="mt-6 mb-4 text-xl font-bold">
+            Which users will be joining your mix?
+          </h2>
+          <div className="input-group">
+            <Input
+              onChange={(event) => handleChange("user1", event.target.value)}
+              placeholder="Enter Last.fm Username"
+            />
+            <Input
+              onChange={(event) => handleChange("user2", event.target.value)}
+              placeholder="Enter Last.fm Username"
+            />
+            <Input
+              onChange={(event) => handleChange("user3", event.target.value)}
+              placeholder="Enter Last.fm Username"
+            />
+          </div>
+
           <Button
-            key={genre}
-            variant="outline"
-            className={
-              selectedGenre === genre
-                ? "border-2 border-zinc-500 dark:border-zinc-400"
-                : "border border-zinc-900 bg-white shadow-sm hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
-            }
-            onClick={() => {
-              handleChange("genre", genre);
-              setSelectedGenre(genre);
-            }}
+            className="generate-button mt-6"
+            onClick={handleGeneratePlaylist}
           >
-            {genre}
+            Generate Playlist!
           </Button>
-        ))}
-      </div>
-
-      <div className="mt-6">
-        <h2 className="text-lg font-bold mb-4">Which users will be joining your mix?</h2>
-        <Input
-          onChange={(event) => handleChange("user1", event.target.value)}
-          placeholder="Enter Last.fm Username"
-        />
-        <Input
-          onChange={(event) => handleChange("user2", event.target.value)}
-          placeholder="Enter Last.fm Username"
-        />
-        <Input
-          onChange={(event) => handleChange("user3", event.target.value)}
-          placeholder="Enter Last.fm Username"
-        />
-
-        <Button onClick={handleGeneratePlaylist}>
-          Generate Playlist!
-        </Button>
+        </div>
       </div>
     </div>
   );
