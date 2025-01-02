@@ -327,5 +327,3 @@ export const createEmptyPlaylist = async (
     return null;
   }
 };
-
-// end of code to separate

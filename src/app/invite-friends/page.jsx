@@ -14,10 +14,19 @@ import {
   getTracks,
   createEmptyPlaylist,
 } from "./playlist-helpers";
-
+import "./invite.css";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../../components/components/ui/popover";
+import { IoIosArrowDown } from "react-icons/io";
+import { IoIosArrowUp } from "react-icons/io";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 
 export default function InviteAndChoose() {
   const [token, setToken] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
 
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -63,28 +72,34 @@ export default function InviteAndChoose() {
       alert("Please select the situation you are in!");
       return;
     }
-  
-    const usernames = [formData.user1, formData.user2, formData.user3].filter(Boolean);
-  
+
+    const usernames = [formData.user1, formData.user2, formData.user3].filter(
+      Boolean
+    );
+
     if (!usernames.length) {
       alert("Please enter at least one username!");
       return;
     }
-  
+
     try {
-      const playlistId = await createEmptyPlaylist(selectedGenre, usernames, session);
+      const playlistId = await createEmptyPlaylist(
+        selectedGenre,
+        usernames,
+        session
+      );
       const tracks = await getTracks(usernames, session);
       console.log("Generated tracks:", tracks);
-  
+
       const generatedPlaylist = await getCuratedPlaylist(tracks, selectedGenre);
       console.log("Generated Playlist:", generatedPlaylist);
-  
+
       if (generatedPlaylist.length) {
         const spotifyIDs = await getSpotifyTrackIDs(generatedPlaylist, session);
         if (spotifyIDs.length) {
           alert(`Successfully got Spotify IDs!`);
         }
-  
+
         const spotifyURIs = await getSpotifyURIS(spotifyIDs, session);
         if (spotifyURIs.length) {
           alert(`Successfully got Spotify URIs!`);
@@ -96,7 +111,7 @@ export default function InviteAndChoose() {
       alert("An error occurred while generating the playlist.");
     }
   };
-  
+
   useEffect(() => {
     console.log(formData);
   }, [formData]);
@@ -111,21 +126,35 @@ export default function InviteAndChoose() {
   return (
     <div className="p-6">
       <div>
-        <p className="text-white font-normal text-xl mt-5 mb-2">
-          Signed in as:
-        </p>
-        <span className="bold-txt">{session?.user?.name}</span>
-        <Button
-          className="opacity-70 mt-8 mb-5 underline cursor-pointer"
-          onClick={() => {
-            signOut({ callbackUrl: "/" });
-          }}
+        <Popover
+          onOpenChange={(open) => setIsOpen(open)}
         >
-          Sign Out
-        </Button>
+          <PopoverTrigger>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              Hello, {session?.user?.name}
+              {isOpen ? <IoIosArrowUp /> : <IoIosArrowDown />}
+            </span>
+          </PopoverTrigger>
+          <PopoverContent>
+            <h2
+              className="cursor-pointer"
+              onClick={() => {
+                signOut({ callbackUrl: "/" });
+              }}
+            >
+              Sign Out
+            </h2>
+          </PopoverContent>
+        </Popover>
       </div>
 
-      <h1 className="mt-6 mb-4 text-xl font-bold">What is the situation?</h1>
+      <h1 className="mt-6 mb-4 text-xl font-bold">What is your situation?</h1>
       <div className="flex flex-col gap-4">
         {genres.map((genre) => (
           <Button
@@ -146,27 +175,25 @@ export default function InviteAndChoose() {
         ))}
       </div>
 
-      {selectedGenre && (
-        <div className="mt-6">
-          <h2 className="text-lg font-bold mb-4">Add Friends:</h2>
-          <Input
-            onChange={(event) => handleChange("user1", event.target.value)}
-            placeholder="Enter Last.fm Username"
-          />
-          <Input
-            onChange={(event) => handleChange("user2", event.target.value)}
-            placeholder="Enter Last.fm Username"
-          />
-          <Input
-            onChange={(event) => handleChange("user3", event.target.value)}
-            placeholder="Enter Last.fm Username"
-          />
+      <div className="mt-6">
+        <h2 className="text-lg font-bold mb-4">Which users will be joining your mix?</h2>
+        <Input
+          onChange={(event) => handleChange("user1", event.target.value)}
+          placeholder="Enter Last.fm Username"
+        />
+        <Input
+          onChange={(event) => handleChange("user2", event.target.value)}
+          placeholder="Enter Last.fm Username"
+        />
+        <Input
+          onChange={(event) => handleChange("user3", event.target.value)}
+          placeholder="Enter Last.fm Username"
+        />
 
-          <Button onClick={handleGeneratePlaylist}>
-            All Friends Joined? Generate Playlist!
-          </Button>
-        </div>
-      )}
+        <Button onClick={handleGeneratePlaylist}>
+          Generate Playlist!
+        </Button>
+      </div>
     </div>
   );
 }
