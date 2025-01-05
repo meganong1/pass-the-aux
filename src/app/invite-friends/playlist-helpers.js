@@ -43,7 +43,7 @@ export async function addURIsToPlaylist(playlistId, spotifyURIs, session) {
 
     const data = await response.json();
     console.log("Successfully added tracks to playlist:", data);
-    alert(`Successfully added tracks to playlist!`);
+    // alert(`Successfully added tracks to playlist!`);
   } catch (error) {
     console.error("Error from addURIsToPlaylist:", error);
     alert("Error while adding tracks to playlist.");
@@ -316,7 +316,7 @@ export const createEmptyPlaylist = async (
     const playlistData = await response.json();
     const playlistId = playlistData.id;
 
-    alert(`Playlist created! ${playlistData.name}`);
+    // alert(`Playlist created! ${playlistData.name}`);
     console.log("Playlist created:", playlistData);
     console.log("Created playlist ID:", playlistId);
 
