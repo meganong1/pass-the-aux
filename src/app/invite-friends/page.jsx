@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Open_Sans } from "next/font/google";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
 import { useRouter, redirect } from "next/navigation";
@@ -20,52 +21,57 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../../components/components/ui/popover";
-import { IoIosArrowDown } from "react-icons/io";
-import { IoIosArrowUp } from "react-icons/io";
-import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
+
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  weight: ["600", "600", "700"],
+});
 
 export default function InviteAndChoose() {
   const [token, setToken] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-
+  const [blendId, setBlendId] = useState("");
   const { data: session, status } = useSession();
-  const router = useRouter();
-
   const genres = ["Party", "Driving", "Chill"];
   const [selectedGenre, setSelectedGenre] = useState(null);
-  const [blendId] = useState(
-    "blend-" + Math.random().toString(36).substring(2, 9)
-  );
-  const [formData, setFormData] = React.useState({});
+  const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      redirect("/");
+    if (typeof window !== "undefined") {
+      setBlendId("blend-" + Math.random().toString(36).substring(2, 9));
     }
-  }, [status]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      let token = window.localStorage.getItem("token");
+
+      if (!token && hash) {
+        token = hash
+          .substring(1)
+          .split("&")
+          .find((elem) => elem.startsWith("access_token"))
+          .split("=")[1];
+
+        window.location.hash = "";
+        window.localStorage.setItem("token", token);
+      }
+
+      setToken(token);
+      console.log("Token:", token);
+    }
+  }, []);
 
   if (status === "loading") {
     return <p>Loading...</p>;
   }
 
-  useEffect(() => {
-    const hash = window.location.hash;
-    let token = window.localStorage.getItem("token");
-
-    if (!token && hash) {
-      token = hash
-        .substring(1)
-        .split("&")
-        .find((elem) => elem.startsWith("access_token"))
-        .split("=")[1];
-
-      window.location.hash = "";
-      window.localStorage.setItem("token", token);
-    }
-
-    setToken(token);
-    console.log("token is" + token);
-  }, []);
+  if (!session) {
+    redirect("/");
+    return null;
+  }
 
   const handleGeneratePlaylist = async () => {
     if (!selectedGenre) {
@@ -112,30 +118,19 @@ export default function InviteAndChoose() {
     }
   };
 
-  useEffect(() => {
-    console.log(formData);
-  }, [formData]);
-
-  function handleChange(name, value) {
-    setFormData((formField) => ({
-      ...formField,
-      [name]: value,
-    }));
-  }
-
   return (
-    <div className="page-container">
+    <div className={`page-container ${openSans.className}`}>
       <div className="top-right">
         <Popover onOpenChange={(open) => setIsOpen(open)}>
           <PopoverTrigger>
-            <span className="login">
+            <span className={`login ${openSans.className}`}>
               Hello, {session?.user?.name}&nbsp;
               {isOpen ? <IoIosArrowUp /> : <IoIosArrowDown />}
             </span>
           </PopoverTrigger>
           <PopoverContent>
             <h2
-              className="cursor-pointer"
+              className={`cursor-pointer ${openSans.className}`}
               onClick={() => {
                 signOut({ callbackUrl: "/" });
               }}
@@ -146,16 +141,18 @@ export default function InviteAndChoose() {
         </Popover>
       </div>
 
-      <div className="content-center">
+      <div className={`content-center ${openSans.className}`}>
         <h1 className="mt-6 mb-4 text-xl font-bold">What is your situation?</h1>
         <div className="button-group">
           {genres.map((genre) => (
             <Button
               key={genre}
-              className="button"
+              className={`button ${openSans.className} ${
+                selectedGenre === genre ? "selected" : ""
+              }`}
               onClick={() => {
-                handleChange("genre", genre);
                 setSelectedGenre(genre);
+                setFormData({ ...formData, genre });
               }}
             >
               {genre}
@@ -169,21 +166,29 @@ export default function InviteAndChoose() {
           </h2>
           <div className="input-group">
             <Input
-              onChange={(event) => handleChange("user1", event.target.value)}
+              className={openSans.className}
+              onChange={(event) =>
+                setFormData({ ...formData, user1: event.target.value })
+              }
               placeholder="Enter Last.fm Username"
             />
             <Input
-              onChange={(event) => handleChange("user2", event.target.value)}
+              className={openSans.className}
+              onChange={(event) =>
+                setFormData({ ...formData, user2: event.target.value })
+              }
               placeholder="Enter Last.fm Username"
             />
             <Input
-              onChange={(event) => handleChange("user3", event.target.value)}
+              className={openSans.className}
+              onChange={(event) =>
+                setFormData({ ...formData, user3: event.target.value })
+              }
               placeholder="Enter Last.fm Username"
             />
           </div>
-
           <Button
-            className="generate-button mt-6"
+            className={`generate-button mt-6 ${openSans.className}`}
             onClick={handleGeneratePlaylist}
           >
             Generate Playlist!

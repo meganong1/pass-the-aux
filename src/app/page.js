@@ -2,8 +2,15 @@
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { signIn, signOut } from "next-auth/react";
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 import { Button } from "../../components/components/ui/button";
+import "./home.css";
+import { FaSpotify } from "react-icons/fa";
+import { Open_Sans } from "next/font/google";
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  weight: ["600", "600", "700"],
+});
 
 export default function Home() {
   const { data: session } = useSession();
@@ -11,32 +18,13 @@ export default function Home() {
   console.log(session);
 
   return (
-    <div className="p-6" suppressHydrationWarning>
-      <h1 className="text-3xl font-bold mb-4">Pass the Aux</h1>
-      <p className="text-lg mb-6">
-        Welcome to the app. This is the home page.
-      </p>
-
+    <div className="page-container" suppressHydrationWarning>
+      <h1 className="title font-bold mb-4">Pass the Aux</h1>
       {session ? (
-        // <div>
-        //   <p className="text-white font-normal text-xl mt-5 mb-2">
-        //     Signed In as
-        //   </p>
-        //   <span className="bold-txt">{session?.user?.name}</span>
-        //   <p
-        //     className="opacity-70 mt-8 mb-5 underline cursor-pointer"
-        //     onClick={() => signOut()}
-        //   >
-        //     Sign Out
-        //   </p>
-        // </div>
-        redirect('/invite-friends')
-
+        redirect("/invite-friends")
       ) : (
-        <Button
-          onClick={() => signIn()}
-        >
-          Sign In with Spotify
+        <Button onClick={() => signIn()}>
+          <FaSpotify /> Sign In with Spotify
         </Button>
       )}
     </div>
